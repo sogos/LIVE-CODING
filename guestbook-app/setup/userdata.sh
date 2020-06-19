@@ -11,7 +11,7 @@
 DEFAULT_REGION=eu-west-1
 REGION=${1:-$DEFAULT_REGION}
 
-PROJECT_REPOSITORY=https://github.com/alfallouji/LIVE-CODING.git
+PROJECT_REPOSITORY=https://github.com/sogos/LIVE-CODING.git
 
 NODE_BIN=/usr/bin/node
 GIT_BIN=/usr/bin/git
