@@ -13,6 +13,8 @@ KillMode=process
 User=ec2-user
 Restart=always
 RestartSec=2
+StandardError=syslog
+SyslogIdentifier=guestbook
 
 [Install]
 WantedBy=multi-user.target

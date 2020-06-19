@@ -13,6 +13,50 @@ REGION=${1:-$DEFAULT_REGION}
 
 PROJECT_REPOSITORY=https://github.com/sogos/LIVE-CODING.git
 
+
+## Redirect journalctl logs to syslog
+sed -i 's/#ForwardToSyslog=yes/ForwardToSyslog=yes/g' /etc/systemd/journald.conf
+systemctl restart systemd-journald
+
+
+## Create a rsyslog rule for guestbook app
+echo ":syslogtag, startswith, \"guestbook\" /var/log/guestbook.log
+& stop" > /etc/rsyslog.d/99-guestbook.conf
+
+systemctl restart rsyslog
+
+## Install CloudWatch Agent
+AWSLOGS_BIN=/usr/sbin/awslogsd
+if [ ! -f ${AWSLOGS_BIN} ]; then
+        yum -y install awslogs
+fi
+## Install AWS Config file
+echo "[general]
+state_file = /var/lib/awslogs/agent-state
+
+[/var/log/cloud-init-output.log]
+file = /var/log/cloud-init-output.log
+buffer_duration = 5000
+log_group_name = guestbook-instance-var-log-cloud-init-output
+log_stream_name = {instance_id}
+datetime_format = %b %d %H:%M:%S
+initial_position = start_of_file
+
+[/var/log/guestbook.log]
+file = /var/log/messages
+buffer_duration = 5000
+log_group_name = guestbook-app-var-log-guestbook
+log_stream_name = {instance_id}
+datetime_format = %b %d %H:%M:%S
+initial_position = start_of_file
+" > /etc/awslogs/awslogs.conf
+
+## Change Cloudwatch logs region:
+sed -i "s/region = us-east-1/region = ${REGION}/g" /etc/awslogs/awscli.conf
+
+systemctl enable awslogsd
+systemctl start awslogsd
+
 NODE_BIN=/usr/bin/node
 GIT_BIN=/usr/bin/git
 
@@ -45,33 +89,6 @@ if [ -f ${GUESTBOOK_SYSTEMD_SERVICE} ]; then
 fi
 install --owner root --group root --mode 0644 ${PROJECT_DIRECTORY}/guestbook-app/setup/guestbook.service ${GUESTBOOK_SYSTEMD_SERVICE}
 
-## Redirect journalctl logs to syslog
-sed -i 's/#ForwardToSyslog=yes/ForwardToSyslog=yes/g' /etc/systemd/journald.conf
-systemctl restart systemd-journald
-
-## Install CloudWatch Agent
-AWSLOGS_BIN=/usr/sbin/awslogsd
-if [ ! -f ${AWSLOGS_BIN} ]; then
-        yum -y install awslogs
-fi
-## Install AWS Config file
-echo "[general]
-state_file = /var/lib/awslogs/agent-state
-
-[/var/log/messages]
-file = /var/log/messages
-buffer_duration = 5000
-log_group_name = guestbook-app-var-log-messages
-log_stream_name = {instance_id}
-datetime_format = %b %d %H:%M:%S
-initial_position = start_of_file
-" > /etc/awslogs/awslogs.conf
-
-## Change Cloudwatch logs region:
-sed -i "s/region = us-east-1/region = ${REGION}/g" /etc/awslogs/awscli.conf
-
-systemctl enable awslogsd
-systemctl start awslogsd
 
 ## Activate the service at startup
 systemctl daemon-reload
